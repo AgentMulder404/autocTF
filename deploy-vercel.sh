@@ -5,6 +5,15 @@
 
 set -e
 
+# Load nvm if available
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Use Node 18
+if command -v nvm &> /dev/null; then
+    nvm use 18 || nvm install 18
+fi
+
 echo "🚀 AutoCTF Vercel Deployment"
 echo "=============================="
 echo ""
