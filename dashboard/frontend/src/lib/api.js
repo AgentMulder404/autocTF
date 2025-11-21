@@ -52,6 +52,11 @@ export const fetchRunStatus = async (runId) => {
   return data;
 };
 
+export const fetchRunSummary = async (runId) => {
+  const { data } = await api.get(`/api/runs/${runId}/summary`);
+  return data;
+};
+
 // Vulnerabilities
 export const fetchVulnerabilities = async () => {
   const { data } = await api.get('/api/vulnerabilities');

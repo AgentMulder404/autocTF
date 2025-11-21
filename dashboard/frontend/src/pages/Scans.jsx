@@ -1,14 +1,48 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Clock, CheckCircle, XCircle, Loader } from 'lucide-react';
-import { fetchRuns } from '../lib/api';
+import { Clock, CheckCircle, XCircle, Loader, FileText, X, Download } from 'lucide-react';
+import { fetchRuns, fetchRunSummary } from '../lib/api';
 import { format } from 'date-fns';
 
 export default function Scans() {
+  const [selectedRun, setSelectedRun] = useState(null);
+  const [showSummary, setShowSummary] = useState(false);
+  const [summary, setSummary] = useState(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
+
   const { data: runs, isLoading } = useQuery({
     queryKey: ['runs'],
     queryFn: fetchRuns,
     refetchInterval: 5000, // Auto-refresh
   });
+
+  const handleViewSummary = async (run) => {
+    setSelectedRun(run);
+    setShowSummary(true);
+    setLoadingSummary(true);
+    try {
+      const summaryData = await fetchRunSummary(run.id);
+      setSummary(summaryData);
+    } catch (error) {
+      alert('Failed to load summary: ' + error.message);
+      setShowSummary(false);
+    } finally {
+      setLoadingSummary(false);
+    }
+  };
+
+  const handleDownloadSummary = () => {
+    if (!summary) return;
+    const blob = new Blob([summary.summary], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pentest-summary-${selectedRun.id}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -57,6 +91,7 @@ export default function Scans() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Started</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Completed</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Error</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -81,11 +116,103 @@ export default function Scans() {
                 <td className="px-6 py-4 text-sm text-red-600">
                   {run.error_message ? run.error_message.substring(0, 50) + '...' : '-'}
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  {run.status === 'completed' && (
+                    <button
+                      onClick={() => handleViewSummary(run)}
+                      className="inline-flex items-center gap-2 text-cyan-600 hover:text-cyan-900"
+                    >
+                      <FileText className="w-5 h-5" />
+                      <span>View Summary</span>
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Summary Modal */}
+      {showSummary && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Pentest Summary Report #{selectedRun?.id}
+              </h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleDownloadSummary}
+                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+                  title="Download as Markdown"
+                >
+                  <Download className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setShowSummary(false)}
+                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingSummary ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader className="w-8 h-8 text-cyan-600 animate-spin" />
+                  <span className="ml-3 text-gray-600">Generating summary...</span>
+                </div>
+              ) : summary ? (
+                <div className="prose max-w-none">
+                  <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-gray-800">
+                    {summary.summary}
+                  </pre>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  Failed to load summary
+                </div>
+              )}
+            </div>
+
+            {/* Footer with Statistics */}
+            {summary && !loadingSummary && (
+              <div className="p-6 border-t bg-gray-50">
+                <div className="grid grid-cols-6 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-gray-900">{summary.statistics.total_vulnerabilities}</div>
+                    <div className="text-xs text-gray-600">Total</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-red-600">{summary.statistics.critical}</div>
+                    <div className="text-xs text-gray-600">Critical</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600">{summary.statistics.high}</div>
+                    <div className="text-xs text-gray-600">High</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-yellow-600">{summary.statistics.medium}</div>
+                    <div className="text-xs text-gray-600">Medium</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">{summary.statistics.low}</div>
+                    <div className="text-xs text-gray-600">Low</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-gray-900">{summary.statistics.duration}</div>
+                    <div className="text-xs text-gray-600">Duration</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
