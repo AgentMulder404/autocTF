@@ -1,0 +1,7 @@
+e2b-code-interpreter>=0.0.9
+browserbase>=0.1
+PyGithub
+langgraph
+langchain-openai   # or langchain-ollama / langchain-groq
+python-dotenv
+markdown
