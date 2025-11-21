@@ -1,23 +1,9 @@
 version: '3.8'
 
-services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: autoctf
-      POSTGRES_PASSWORD: autoctf_secure_password
-      POSTGRES_DB: autoctf
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U autoctf"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+# NOTE: This configuration uses Neon PostgreSQL (cloud-hosted)
+# No local PostgreSQL container needed
 
+services:
   # Backend API
   backend:
     build:
@@ -29,14 +15,9 @@ services:
       - ./backend:/app
       - ../../agent:/app/agent
       - ../../mcp:/app/mcp
-    environment:
-      - DATABASE_URL=postgresql://autoctf:autoctf_secure_password@postgres:5432/autoctf
     env_file:
       - ../../.env
-    depends_on:
-      postgres:
-        condition: service_healthy
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
 
   # Frontend
   frontend:
@@ -59,6 +40,3 @@ services:
       - "8080:80"
     environment:
       - MYSQL_PASS=hackme
-
-volumes:
-  postgres_data:

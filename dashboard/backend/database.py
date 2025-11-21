@@ -1,25 +1,33 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import QueuePool
 from models import Base
 import os
 
-# Support both SQLite (dev) and PostgreSQL (production)
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./autoctf.db")
+# Neon PostgreSQL Database
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# SQLite specific settings
-connect_args = {}
-if "sqlite" in DATABASE_URL:
-    connect_args = {"check_same_thread": False}
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is required. Please set your Neon connection string.")
 
-# Create engine
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+# Create engine with connection pooling for better performance
+engine = create_engine(
+    DATABASE_URL,
+    poolclass=QueuePool,
+    pool_size=5,
+    max_overflow=10,
+    pool_pre_ping=True,  # Verify connections before using
+    echo=False  # Set to True for SQL query logging
+)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
     """Initialize database tables"""
     Base.metadata.create_all(bind=engine)
-    print(f"✅ Database initialized: {DATABASE_URL}")
+    # Mask password in log
+    safe_url = DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'Neon'
+    print(f"✅ Database initialized: postgresql://***@{safe_url}")
 
 def get_db():
     """Dependency for getting database session"""

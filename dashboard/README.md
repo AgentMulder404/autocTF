@@ -47,7 +47,7 @@ npm run dev
 
 ### Backend (FastAPI)
 - REST API with auto-generated OpenAPI docs
-- SQLAlchemy ORM with SQLite/PostgreSQL support
+- SQLAlchemy ORM with Neon PostgreSQL
 - Background task processing for pentests
 - Real-time status updates
 
@@ -100,9 +100,28 @@ BROWSERBASE_PROJECT_ID=your_project_id
 GITHUB_TOKEN=your_token
 GITHUB_REPO=username/repo
 
-# Database (optional)
-DATABASE_URL=sqlite:///./autoctf.db
+# Neon PostgreSQL Database (required)
+DATABASE_URL=postgresql://user:password@host/database?sslmode=require
 ```
+
+### Database Setup (Neon PostgreSQL)
+
+This project uses [Neon](https://neon.tech) serverless PostgreSQL:
+
+1. **Create a Neon account** at https://neon.tech
+2. **Create a new project** in the Neon console
+3. **Copy the connection string** from your project dashboard
+4. **Add to `.env`**:
+   ```env
+   DATABASE_URL=postgresql://user:password@ep-xxx.aws.neon.tech/neondb?sslmode=require
+   ```
+5. **Database tables are auto-created** on first run via SQLAlchemy migrations
+
+**Features:**
+- Connection pooling (5 connections, max 10)
+- Automatic connection health checks
+- SSL/TLS enabled by default
+- No local PostgreSQL installation needed
 
 ## Development
 
@@ -120,12 +139,13 @@ npm run dev
 
 ## Production Deployment
 
-1. Set `DATABASE_URL` to PostgreSQL connection string
+1. Neon database is already production-ready (serverless, auto-scaling)
 2. Update CORS origins in `backend/main.py`
 3. Build frontend: `npm run build`
 4. Use Nginx as reverse proxy
 5. Enable SSL/TLS certificates
 6. Configure authentication and RBAC
+7. Consider increasing Neon connection pool size for higher load
 
 ## Security Considerations
 

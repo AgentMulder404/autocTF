@@ -83,4 +83,6 @@ Required in `.env`:
 - `OPENAI_API_KEY` - For LLM analysis (or configure Groq in analyze.py)
 - `BROWSERBASE_API_KEY` / `BROWSERBASE_PROJECT_ID` - For screenshot capture
 - `GITHUB_TOKEN` / `GITHUB_REPO` - For PR creation
-- `DATABASE_URL` - Database connection (optional, defaults to SQLite)
+- `DATABASE_URL` - Neon PostgreSQL connection string (required for dashboard)
+  - Example: `postgresql://user:password@ep-xxx.aws.neon.tech/neondb?sslmode=require`
+  - Get from https://neon.tech after creating a project
