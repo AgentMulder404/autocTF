@@ -5,3 +5,4 @@ __pycache__/
 .vscode/
 autocTF/
 node_modules/
+dashboard/frontend/dist/
