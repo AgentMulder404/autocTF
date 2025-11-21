@@ -1,12 +1,11 @@
-from e2b import Session
+from e2b import AsyncSandbox
 import asyncio
 import os
 
 async def exec_command(command: str, timeout=120):
-    session = await Session.create("security")
+    sandbox = await AsyncSandbox.create()
     print(f"[Exec MCP] Running: {command}")
-    proc = await session.process.start(command, timeout=timeout)
-    await proc
-    output = proc.stdout + "\n" + proc.stderr
-    await session.close()
+    result = await sandbox.commands.run(command, timeout=timeout)
+    output = result.stdout + "\n" + result.stderr
+    await sandbox.close()
     return output
