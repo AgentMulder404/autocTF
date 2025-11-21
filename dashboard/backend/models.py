@@ -12,6 +12,10 @@ class Target(Base):
     name = Column(String(255), nullable=False)
     url = Column(String(512), nullable=False)
     ip_address = Column(String(50))
+    github_repo = Column(String(512), nullable=True)  # GitHub repo URL
+    github_branch = Column(String(100), default="main")  # Default branch
+    repo_owner = Column(String(255), nullable=True)  # GitHub username/org
+    repo_name = Column(String(255), nullable=True)  # Repository name
     status = Column(String(50), default="active")  # active, paused, archived
     created_at = Column(DateTime, default=datetime.utcnow)
     last_scan = Column(DateTime, nullable=True)

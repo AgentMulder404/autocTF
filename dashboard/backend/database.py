@@ -3,19 +3,23 @@ from sqlalchemy.orm import sessionmaker
 from models import Base
 import os
 
-# Use SQLite for simplicity (switch to PostgreSQL for production)
+# Support both SQLite (dev) and PostgreSQL (production)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./autoctf.db")
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
-)
+# SQLite specific settings
+connect_args = {}
+if "sqlite" in DATABASE_URL:
+    connect_args = {"check_same_thread": False}
+
+# Create engine
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
     """Initialize database tables"""
     Base.metadata.create_all(bind=engine)
+    print(f"✅ Database initialized: {DATABASE_URL}")
 
 def get_db():
     """Dependency for getting database session"""

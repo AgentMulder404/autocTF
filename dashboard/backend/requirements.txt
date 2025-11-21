@@ -3,6 +3,7 @@ uvicorn[standard]==0.27.0
 sqlalchemy==2.0.25
 pydantic==2.5.3
 python-dotenv==1.0.0
+psycopg2-binary==2.9.9
 e2b-code-interpreter>=0.0.9
 browserbase>=0.1
 PyGithub

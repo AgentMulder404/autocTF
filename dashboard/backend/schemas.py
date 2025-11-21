@@ -28,18 +28,31 @@ class TargetCreate(BaseModel):
     name: str
     url: str
     ip_address: Optional[str] = None
+    github_repo: Optional[str] = None
+    github_branch: Optional[str] = "main"
+    repo_owner: Optional[str] = None
+    repo_name: Optional[str] = None
+
+class TargetFromGitHub(BaseModel):
+    github_url: str
 
 class TargetUpdate(BaseModel):
     name: Optional[str] = None
     url: Optional[str] = None
     ip_address: Optional[str] = None
     status: Optional[TargetStatus] = None
+    github_repo: Optional[str] = None
+    github_branch: Optional[str] = None
 
 class TargetResponse(BaseModel):
     id: int
     name: str
     url: str
     ip_address: Optional[str]
+    github_repo: Optional[str]
+    github_branch: Optional[str]
+    repo_owner: Optional[str]
+    repo_name: Optional[str]
     status: str
     created_at: datetime
     last_scan: Optional[datetime]

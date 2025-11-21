@@ -8,12 +8,13 @@ from datetime import datetime, timedelta
 from database import get_db, init_db
 from models import Target, PentestRun, Vulnerability, Patch
 from schemas import (
-    TargetCreate, TargetUpdate, TargetResponse,
+    TargetCreate, TargetUpdate, TargetResponse, TargetFromGitHub,
     RunCreate, RunResponse, RunDetailResponse,
     VulnerabilityResponse, VulnerabilityUpdate,
     PatchResponse, OverviewStats, TrendData
 )
 from pentest_worker import PentestWorker
+from github_utils import extract_target_info_from_github
 
 # Initialize FastAPI
 app = FastAPI(
@@ -60,6 +61,24 @@ def create_target(target: TargetCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_target)
     return db_target
+
+@app.post("/api/targets/from-github", response_model=TargetResponse)
+def create_target_from_github(github_data: TargetFromGitHub, db: Session = Depends(get_db)):
+    """Create a target from a GitHub repository URL"""
+    try:
+        # Extract target info from GitHub URL
+        target_info = extract_target_info_from_github(github_data.github_url)
+
+        # Create target with extracted info
+        db_target = Target(**target_info)
+        db.add(db_target)
+        db.commit()
+        db.refresh(db_target)
+        return db_target
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process GitHub URL: {str(e)}")
 
 @app.get("/api/targets/{target_id}", response_model=TargetResponse)
 def get_target(target_id: int, db: Session = Depends(get_db)):

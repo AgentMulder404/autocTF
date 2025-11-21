@@ -17,6 +17,11 @@ export const createTarget = async (target) => {
   return data;
 };
 
+export const createTargetFromGitHub = async (githubUrl) => {
+  const { data } = await api.post('/api/targets/from-github', { github_url: githubUrl });
+  return data;
+};
+
 export const updateTarget = async (id, updates) => {
   const { data } = await api.put(`/api/targets/${id}`, updates);
   return data;
