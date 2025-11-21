@@ -1,0 +1,15 @@
+node_modules
+.git
+.env
+__pycache__
+*.pyc
+.pytest_cache
+.venv
+venv
+*.db
+*.log
+dashboard/frontend/node_modules
+dashboard/backend/__pycache__
+vulnerable-app
+agent/__pycache__
+mcp/__pycache__
