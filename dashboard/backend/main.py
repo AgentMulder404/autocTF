@@ -4,6 +4,11 @@ from sqlalchemy.orm import Session
 from typing import List
 import asyncio
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+import os
+
+# Load .env file from project root
+load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env'))
 
 from database import get_db, init_db
 from models import Target, PentestRun, Vulnerability, Patch
