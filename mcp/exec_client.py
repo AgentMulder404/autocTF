@@ -9,23 +9,24 @@ async def get_sandbox():
     """Get or create a sandbox instance"""
     global _sandbox
     if _sandbox is None:
-        _sandbox = await AsyncSandbox.create()
-        print("✅ E2B Sandbox created")
+        # Create sandbox with longer timeout (15 minutes)
+        _sandbox = await AsyncSandbox.create(timeout=900)
+        print("✅ E2B Sandbox created (15 min timeout)")
 
         # Install required security tools
         print("📦 Installing security tools (this may take up to 3 minutes)...")
         try:
-            # First, update package lists
-            update_cmd = "apt-get update -qq"
+            # First, update package lists (with sudo)
+            update_cmd = "sudo apt-get update -qq"
             print("  → Updating package lists...")
             update_result = await _sandbox.commands.run(update_cmd, timeout=120)
             print(f"  → Update exit code: {update_result.exit_code}")
 
-            # Install tools one by one for better visibility
+            # Install tools one by one for better visibility (with sudo)
             tools = ["nmap", "nikto", "gobuster", "sqlmap", "curl", "wget", "git", "whois", "dnsutils"]
             install_cmd = f"""
             export DEBIAN_FRONTEND=noninteractive && \
-            apt-get install -y -qq {' '.join(tools)} 2>&1 | grep -E "Setting up|Unpacking|E:|W:" || true
+            sudo apt-get install -y -qq {' '.join(tools)} 2>&1 | grep -E "Setting up|Unpacking|E:|W:" || true
             """
 
             print(f"  → Installing tools: {', '.join(tools)}")

@@ -1,7 +1,7 @@
-from langchain_openai import ChatOpenAI
-# from langchain_groq import ChatGroq
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-# llm = ChatGroq(model="llama3-70b-8192")
+# from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
+# llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+llm = ChatGroq(model="llama3-70b-8192", temperature=0)
 
 def detect_vulns(scan_output: str) -> str:
     prompt = f"""
