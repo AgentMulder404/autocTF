@@ -4,4 +4,4 @@ PyGithub
 langgraph
 langchain-openai   # or langchain-ollama / langchain-groq
 python-dotenv
-markdown
+markdownrequests
