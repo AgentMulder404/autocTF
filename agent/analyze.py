@@ -18,7 +18,7 @@ Scan output:
 
     # Direct API call to xAI - using only supported parameters
     payload = {
-        "model": "grok-2-latest",
+        "model": "grok-2-1212",  # Latest stable Grok-2 (grok-2-latest also works, grok-3-latest for newest)
         "messages": [
             {
                 "role": "user",
