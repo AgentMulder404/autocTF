@@ -3,7 +3,7 @@ import os
 
 # Use xAI's Grok model (OpenAI-compatible API)
 llm = ChatOpenAI(
-    model="grok-beta",
+    model="grok-2-latest",
     temperature=0,
     api_key=os.getenv("XAI_API_KEY"),
     base_url="https://api.x.ai/v1"
