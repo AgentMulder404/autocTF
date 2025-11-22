@@ -51,7 +51,27 @@ def root():
 def list_targets(db: Session = Depends(get_db)):
     """List all targets"""
     targets = db.query(Target).all()
-    return targets
+
+    # Add active scan status to each target
+    results = []
+    for target in targets:
+        target_dict = {
+            "id": target.id,
+            "name": target.name,
+            "url": target.url,
+            "ip_address": target.ip_address,
+            "github_repo": target.github_repo,
+            "github_branch": target.github_branch,
+            "repo_owner": target.repo_owner,
+            "repo_name": target.repo_name,
+            "status": target.status,
+            "created_at": target.created_at,
+            "last_scan": target.last_scan,
+            "has_active_scan": any(run.status in ["queued", "running"] for run in target.runs)
+        }
+        results.append(target_dict)
+
+    return results
 
 @app.post("/api/targets", response_model=TargetResponse)
 def create_target(target: TargetCreate, db: Session = Depends(get_db)):
@@ -174,18 +194,23 @@ def get_run_status(run_id: int, db: Session = Depends(get_db)):
     }
 
 @app.delete("/api/runs/{run_id}")
-def cancel_run(run_id: int, db: Session = Depends(get_db)):
-    """Cancel a running pentest"""
+def delete_run(run_id: int, db: Session = Depends(get_db)):
+    """Delete a pentest run (or cancel if running)"""
     run = db.query(PentestRun).filter(PentestRun.id == run_id).first()
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
     if run.status in ["queued", "running"]:
+        # Cancel running scans instead of deleting
         run.status = "cancelled"
         run.completed_at = datetime.utcnow()
         db.commit()
-
-    return {"message": "Run cancelled"}
+        return {"message": "Run cancelled"}
+    else:
+        # Delete completed/failed/cancelled runs
+        db.delete(run)
+        db.commit()
+        return {"message": "Run deleted"}
 
 @app.get("/api/runs/{run_id}/summary")
 def get_run_summary(run_id: int, db: Session = Depends(get_db)):
@@ -215,118 +240,138 @@ def get_run_summary(run_id: int, db: Session = Depends(get_db)):
         else:
             duration = f"{minutes}m {seconds}s"
 
-    # Generate summary text
-    summary = f"""# Penetration Test Summary Report
+    # Generate summary text with hackerish tone
+    summary = f"""# [PENTEST REPORT] {target.name} - Security Assessment
 
-## Target Information
-- **Name:** {target.name}
-- **URL:** {target.url}
-- **Test Date:** {run.started_at.strftime("%B %d, %Y at %I:%M %p") if run.started_at else "N/A"}
-- **Duration:** {duration}
-- **Status:** {run.status.upper()}
+```
+╔═══════════════════════════════════════════════════════════════╗
+║                    TARGET ACQUIRED                             ║
+║                  AUTONOMOUS PENTEST REPORT                     ║
+╚═══════════════════════════════════════════════════════════════╝
+```
 
-## Executive Summary
-This automated penetration test was conducted on {target.name} using AutoCTF's autonomous testing framework. The assessment included reconnaissance, vulnerability scanning, and exploitation attempts to identify security weaknesses.
+## 📡 TARGET INTEL
+- **Designation:** {target.name}
+- **Attack Surface:** {target.url}
+- **Engagement Time:** {run.started_at.strftime("%B %d, %Y at %I:%M %p") if run.started_at else "N/A"}
+- **Op Duration:** {duration}
+- **Mission Status:** {run.status.upper()}
 
-## Key Findings
-- **Total Vulnerabilities Found:** {total_vulns}
-  - Critical: {critical_vulns}
-  - High: {high_vulns}
-  - Medium: {medium_vulns}
-  - Low: {low_vulns}
+## 🎯 ENGAGEMENT SUMMARY
+Ran a full-spectrum autonomous pentest on the target using AutoCTF's AI-powered exploitation framework. This wasn't your typical scan-and-report job - we went deep with active recon, vulnerability enumeration, and live exploitation attempts to see what could actually be pwned.
 
-## Risk Assessment
+## 💀 DAMAGE REPORT
+- **Total Vulns Discovered:** {total_vulns}
+  - CRITICAL (own the box): {critical_vulns}
+  - HIGH (serious breach): {high_vulns}
+  - MEDIUM (attack vector): {medium_vulns}
+  - LOW (info leak): {low_vulns}
+
+## 🔥 THREAT LEVEL ASSESSMENT
 """
 
     if critical_vulns > 0:
-        summary += f"\n⚠️ **CRITICAL RISK**: {critical_vulns} critical vulnerabilities detected. Immediate action required.\n"
+        summary += f"\n🚨 **CODE RED** - {critical_vulns} CRITICAL vulns detected. Target is HIGHLY EXPLOITABLE. This box can be OWNED. Patch ASAP or prepare for breach.\n"
     elif high_vulns > 0:
-        summary += f"\n⚡ **HIGH RISK**: {high_vulns} high-severity vulnerabilities found. Prioritize remediation.\n"
+        summary += f"\n⚠️ **DEFCON 2** - Found {high_vulns} HIGH severity vulns. Target has serious attack vectors. An attacker could do significant damage. Fix immediately.\n"
     elif medium_vulns > 0:
-        summary += f"\n⚠️ **MEDIUM RISK**: {medium_vulns} medium-severity issues identified. Address in next update cycle.\n"
+        summary += f"\n⚡ **ELEVATED RISK** - Discovered {medium_vulns} MEDIUM severity issues. Not immediately critical but these create opportunities for lateral movement. Don't sleep on these.\n"
     elif low_vulns > 0:
-        summary += f"\n✓ **LOW RISK**: Only {low_vulns} low-severity issues found. Good security posture.\n"
+        summary += f"\n✓ **MINOR EXPOSURE** - Only {low_vulns} LOW severity issues found. Target is relatively hardened but still has some info leakage. Clean these up when you can.\n"
     else:
-        summary += "\n✅ **SECURE**: No vulnerabilities detected in this assessment.\n"
+        summary += "\n✅ **FORTRESS MODE** - No exploitable vulns found in this run. Either the target is well-secured or we need deeper enumeration. Nice work on the security posture.\n"
 
-    summary += "\n## Detailed Findings\n"
+    summary += "\n## 🔍 DETAILED EXPLOITATION FINDINGS\n"
 
     if total_vulns > 0:
         # Group vulnerabilities by severity
+        severity_emojis = {"critical": "💀", "high": "🔴", "medium": "🟠", "low": "🟡"}
         for severity in ["critical", "high", "medium", "low"]:
             severity_vulns = [v for v in vulns if v.severity == severity]
             if severity_vulns:
-                summary += f"\n### {severity.upper()} Severity ({len(severity_vulns)})\n"
+                emoji = severity_emojis.get(severity, "⚠️")
+                summary += f"\n### {emoji} {severity.upper()} SEVERITY - {len(severity_vulns)} DISCOVERED\n"
                 for vuln in severity_vulns:
-                    summary += f"\n#### {vuln.title}\n"
-                    summary += f"- **Type:** {vuln.vuln_type}\n"
-                    summary += f"- **Description:** {vuln.description}\n"
+                    summary += f"\n#### [{vuln.vuln_type}] {vuln.title}\n"
+                    summary += f"- **Attack Vector:** {vuln.description}\n"
                     if vuln.proof:
-                        summary += f"- **Proof of Exploitation:** Found\n"
+                        summary += f"- **Exploitation Status:** ✓ CONFIRMED - Proof of concept executed successfully\n"
                     if vuln.cvss_score:
                         summary += f"- **CVSS Score:** {vuln.cvss_score}\n"
                     summary += "\n"
     else:
-        summary += "\nNo vulnerabilities were identified during this assessment.\n"
+        summary += "\nNo exploitable vulnerabilities were discovered in this engagement. Target appears hardened against automated exploitation techniques.\n"
 
     summary += """
-## Recommendations
+## 🛡️ REMEDIATION PROTOCOL
 
 """
 
     if total_vulns > 0:
-        summary += """1. **Immediate Actions:**
-   - Review and validate all critical and high-severity findings
-   - Apply security patches for identified vulnerabilities
-   - Implement input validation and sanitization
+        summary += """### IMMEDIATE ACTIONS (DO THIS NOW):
+   1. 🚨 **Triage Critical/High vulns** - These are your active threats. Drop everything and patch these first
+   2. 🔧 **Deploy Auto-Patches** - Check the GitHub PRs generated by AutoCTF. Review and merge ASAP
+   3. 🛡️ **Implement Input Validation** - Most of these vulns come from trusting user input. Never trust user input
+   4. 🔒 **Enable Security Headers** - CSP, HSTS, X-Frame-Options - the usual suspects
 
-2. **Short-term Actions:**
-   - Deploy auto-generated patches (check GitHub PRs)
-   - Update security policies and configurations
-   - Conduct code review for affected components
+### SHORT-TERM TACTICS:
+   - Review all flagged endpoints and sanitize inputs
+   - Update dependencies (check for known CVEs)
+   - Run another scan after patching to verify fixes
+   - Enable logging for the affected components to detect active exploitation
 
-3. **Long-term Actions:**
-   - Implement continuous security testing in CI/CD pipeline
-   - Conduct security training for development team
-   - Establish regular penetration testing schedule
+### LONG-TERM STRATEGY:
+   - Integrate AutoCTF into your CI/CD pipeline for continuous testing
+   - Implement a bug bounty program (find vulns before bad actors do)
+   - Run red team exercises quarterly
+   - Train your devs on secure coding practices (OWASP Top 10 minimum)
 
 """
     else:
-        summary += """1. **Maintain Security Posture:**
-   - Continue regular security assessments
-   - Keep all dependencies and frameworks updated
-   - Monitor for new vulnerabilities in third-party components
-
-2. **Proactive Measures:**
-   - Implement additional security layers (WAF, IDS/IPS)
-   - Conduct regular security audits
-   - Stay informed about emerging threats
+        summary += """### MAINTAIN THE FORTRESS:
+   - Keep running regular pentests (quarterly minimum)
+   - Stay current with patches and updates
+   - Monitor security advisories for your stack
+   - Implement defense-in-depth (WAF, IDS/IPS, honeypots)
+   - Don't get complacent - attackers are always evolving
 
 """
 
-    summary += f"""## Testing Methodology
+    summary += f"""## 🔬 ATTACK METHODOLOGY
 
-This assessment utilized the following approach:
-1. **Reconnaissance:** Network scanning and service enumeration
-2. **Vulnerability Scanning:** Automated security testing with industry-standard tools
-3. **Exploitation:** Attempted exploitation of discovered vulnerabilities
-4. **Validation:** Proof-of-concept demonstrations
-5. **Reporting:** Automated patch generation and documentation
+This engagement followed a structured kill chain:
+1. **RECON** - Enumerated the attack surface (nmap, service discovery, endpoint mapping)
+2. **SCANNING** - Ran automated vuln scanners (nikto, gobuster, custom fuzzing)
+3. **EXPLOITATION** - Actively exploited discovered vulns (SQLi, XSS, auth bypass, etc.)
+4. **VALIDATION** - Captured proof-of-concept evidence (screenshots, payloads, data exfil)
+5. **PATCHING** - Auto-generated security patches using AI (check your PRs)
 
-## Next Steps
+## 📋 ACTION ITEMS
 
-- Review this report with your security team
-- Prioritize remediation based on severity levels
-- Check GitHub repository for auto-generated security patches
-- Schedule follow-up testing after remediation
+1. ⚡ Review this report with your security/dev team
+2. 🎯 Prioritize remediation by severity (Critical -> High -> Medium -> Low)
+3. 💾 Check GitHub repo for auto-generated patches
+4. 🔄 Re-run AutoCTF after patching to verify fixes
+5. 📊 Track metrics - measure your security posture improvement over time
 
-## Report Generated
-- **Date:** {datetime.utcnow().strftime("%B %d, %Y at %I:%M %p UTC")}
-- **By:** AutoCTF Autonomous Pentesting Platform
-- **Run ID:** {run.id}
+## 📡 ENGAGEMENT METADATA
+```
+Report Generated: {datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")}
+Autonomous Agent: AutoCTF v1.0
+Run ID: #{run.id}
+Operator: AI Pentest Engine
+Status: MISSION COMPLETE
+```
 
 ---
-*This report was automatically generated by AutoCTF. For questions or detailed analysis, review the full scan results in the dashboard.*
+```
+[END REPORT]
+
+This assessment was fully automated by AutoCTF's AI-powered pentesting engine.
+For detailed technical analysis, review the full scan output in the dashboard.
+
+Stay secure. Stay paranoid. 🔒
+```
 """
 
     return {

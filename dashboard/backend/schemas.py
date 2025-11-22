@@ -56,6 +56,7 @@ class TargetResponse(BaseModel):
     status: str
     created_at: datetime
     last_scan: Optional[datetime]
+    has_active_scan: Optional[bool] = False
 
     class Config:
         from_attributes = True
@@ -97,6 +98,11 @@ class VulnerabilityResponse(BaseModel):
     proof_url: Optional[str]
     patched: bool
     created_at: datetime
+    # Enhanced fields
+    dump_data: Optional[dict] = None
+    cvss_score: Optional[str] = None
+    title: Optional[str] = None
+    proof: Optional[str] = None
 
     class Config:
         from_attributes = True

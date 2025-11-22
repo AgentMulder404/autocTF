@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Clock, CheckCircle, XCircle, Loader, FileText, X, Download } from 'lucide-react';
-import { fetchRuns, fetchRunSummary } from '../lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Clock, CheckCircle, XCircle, Loader, FileText, X, Download, Trash2 } from 'lucide-react';
+import { fetchRuns, fetchRunSummary, deleteRun } from '../lib/api';
 import { format } from 'date-fns';
 
 export default function Scans() {
+  const queryClient = useQueryClient();
   const [selectedRun, setSelectedRun] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
   const [summary, setSummary] = useState(null);
@@ -14,6 +15,14 @@ export default function Scans() {
     queryKey: ['runs'],
     queryFn: fetchRuns,
     refetchInterval: 5000, // Auto-refresh
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteRun,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['runs']);
+      queryClient.invalidateQueries(['targets']);
+    },
   });
 
   const handleViewSummary = async (run) => {
@@ -117,15 +126,30 @@ export default function Scans() {
                   {run.error_message ? run.error_message.substring(0, 50) + '...' : '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  {run.status === 'completed' && (
-                    <button
-                      onClick={() => handleViewSummary(run)}
-                      className="inline-flex items-center gap-2 text-cyan-600 hover:text-cyan-900"
-                    >
-                      <FileText className="w-5 h-5" />
-                      <span>View Summary</span>
-                    </button>
-                  )}
+                  <div className="flex items-center justify-end gap-3">
+                    {run.status === 'completed' && (
+                      <>
+                        <button
+                          onClick={() => handleViewSummary(run)}
+                          className="inline-flex items-center gap-2 text-cyan-600 hover:text-cyan-900"
+                        >
+                          <FileText className="w-5 h-5" />
+                          <span>View Summary</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm('Delete this scan and all associated vulnerabilities?')) {
+                              deleteMutation.mutate(run.id);
+                            }
+                          }}
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete scan"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

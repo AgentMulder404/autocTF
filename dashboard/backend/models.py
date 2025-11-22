@@ -55,6 +55,12 @@ class Vulnerability(Base):
     patched = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Enhanced exploitation data
+    dump_data = Column(JSON, nullable=True)  # Store full DB dump results (databases, credentials, etc.)
+    cvss_score = Column(String(10), nullable=True)  # CVSS score if available
+    title = Column(String(255), nullable=True)  # Vulnerability title
+    proof = Column(Text, nullable=True)  # Proof of concept/exploitation evidence
+
     # Relationships
     run = relationship("PentestRun", back_populates="vulnerabilities")
     patches = relationship("Patch", back_populates="vulnerability", cascade="all, delete-orphan")

@@ -256,21 +256,25 @@ export default function Targets() {
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button
                     onClick={() => scanMutation.mutate(target.id)}
-                    disabled={scanMutation.isPending}
-                    className="text-cyan-600 hover:text-cyan-900 mr-3"
+                    disabled={scanMutation.isPending || target.has_active_scan}
+                    className={`mr-3 ${target.has_active_scan ? 'text-gray-400 cursor-not-allowed' : 'text-cyan-600 hover:text-cyan-900'}`}
+                    title={target.has_active_scan ? 'Scan already running' : 'Start scan'}
                   >
                     <Play className="w-5 h-5" />
                   </button>
-                  <button
-                    onClick={() => {
-                      if (confirm('Delete this target?')) {
-                        deleteMutation.mutate(target.id);
-                      }
-                    }}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  {!target.has_active_scan && (
+                    <button
+                      onClick={() => {
+                        if (confirm('Delete this target? This will also delete all associated scans and vulnerabilities.')) {
+                          deleteMutation.mutate(target.id);
+                        }
+                      }}
+                      className="text-red-600 hover:text-red-900"
+                      title="Delete target"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

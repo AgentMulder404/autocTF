@@ -57,6 +57,10 @@ export const fetchRunSummary = async (runId) => {
   return data;
 };
 
+export const deleteRun = async (runId) => {
+  await api.delete(`/api/runs/${runId}`);
+};
+
 // Vulnerabilities
 export const fetchVulnerabilities = async () => {
   const { data } = await api.get('/api/vulnerabilities');
