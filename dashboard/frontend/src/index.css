@@ -2,17 +2,160 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  @apply bg-gray-50;
+@layer base {
+  body {
+    margin: 0;
+    font-family: 'Courier New', monospace, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    @apply bg-[#0a0e27] text-[#00ff41];
+  }
+
+  code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  }
+
+  /* Hacker Terminal Scrollbar */
+  ::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0a0e27;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #00ff41;
+    border-radius: 6px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #00dd35;
+  }
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+@layer components {
+  /* Glowing terminal effect */
+  .terminal-glow {
+    text-shadow: 0 0 5px #00ff41, 0 0 10px #00ff41;
+  }
+
+  /* Scanline effect */
+  @keyframes scanline {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
+  }
+
+  .scanline {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(transparent, #00ff41);
+    opacity: 0.1;
+    animation: scanline 8s linear infinite;
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Hacker button */
+  .hacker-btn {
+    @apply bg-[#00ff41] text-[#0a0e27] font-bold px-4 py-2 rounded border-2 border-[#00ff41];
+    transition: all 0.3s;
+    text-shadow: none;
+  }
+
+  .hacker-btn:hover {
+    @apply bg-transparent text-[#00ff41];
+    box-shadow: 0 0 10px #00ff41, inset 0 0 10px #00ff41;
+  }
+
+  .hacker-btn-danger {
+    @apply bg-[#ff0040] text-white font-bold px-4 py-2 rounded border-2 border-[#ff0040];
+    transition: all 0.3s;
+  }
+
+  .hacker-btn-danger:hover {
+    @apply bg-transparent text-[#ff0040];
+    box-shadow: 0 0 10px #ff0040, inset 0 0 10px #ff0040;
+  }
+
+  /* Terminal card */
+  .terminal-card {
+    @apply bg-[#0d1117] border-2 border-[#00ff41] rounded-lg p-6;
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
+  }
+
+  /* Cyber table */
+  .cyber-table {
+    @apply w-full;
+  }
+
+  .cyber-table thead {
+    @apply bg-[#0d1117] border-b-2 border-[#00ff41];
+  }
+
+  .cyber-table th {
+    @apply px-6 py-3 text-left text-xs font-bold uppercase tracking-wider;
+    color: #00ff41;
+    text-shadow: 0 0 5px #00ff41;
+  }
+
+  .cyber-table tbody {
+    @apply bg-[#161b22];
+  }
+
+  .cyber-table td {
+    @apply px-6 py-4 text-sm;
+    color: #00ff41;
+    border-bottom: 1px solid #30363d;
+  }
+
+  .cyber-table tr:hover {
+    background: rgba(0, 255, 65, 0.05);
+  }
+
+  /* Status badges */
+  .status-badge {
+    @apply px-3 py-1 text-xs font-bold rounded-full border-2;
+    text-transform: uppercase;
+  }
+
+  .status-active {
+    @apply border-[#00ff41] text-[#00ff41] bg-[#00ff41]/10;
+  }
+
+  .status-running {
+    @apply border-[#00d4ff] text-[#00d4ff] bg-[#00d4ff]/10;
+    animation: pulse 2s infinite;
+  }
+
+  .status-completed {
+    @apply border-[#00ff41] text-[#00ff41] bg-[#00ff41]/20;
+  }
+
+  .status-failed {
+    @apply border-[#ff0040] text-[#ff0040] bg-[#ff0040]/10;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  /* Input fields */
+  .terminal-input {
+    @apply w-full px-4 py-2 bg-[#0d1117] border-2 border-[#30363d] rounded text-[#00ff41];
+    transition: all 0.3s;
+  }
+
+  .terminal-input:focus {
+    @apply border-[#00ff41] outline-none;
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+  }
+
+  .terminal-input::placeholder {
+    color: #30363d;
+  }
 }

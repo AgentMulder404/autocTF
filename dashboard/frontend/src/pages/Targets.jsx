@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 export default function Targets() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [importMode, setImportMode] = useState('manual'); // 'manual' or 'github'
+  const [importMode, setImportMode] = useState('github'); // Default to GitHub for ease of use
   const [formData, setFormData] = useState({ name: '', url: '', ip_address: '' });
   const [githubUrl, setGithubUrl] = useState('');
 

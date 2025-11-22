@@ -50,7 +50,7 @@ async def run_recon(target_ip: str, target_url: str):
 
 
 async def run_github_recon(github_url: str):
-    """Analyze a GitHub repository for vulnerabilities"""
+    """Auto-deploy and analyze a GitHub repository"""
 
     # Extract owner and repo from URL
     match = re.search(r'github\.com/([^/]+)/([^/?]+)', github_url)
@@ -60,69 +60,160 @@ async def run_github_recon(github_url: str):
     owner, repo = match.groups()
     repo = repo.split('?')[0]  # Remove query params
 
-    print(f"🔍 Analyzing GitHub repo: {owner}/{repo}")
+    print(f"🎯 TARGET ACQUIRED: {owner}/{repo}")
+    print(f"📡 Initiating auto-deployment sequence...")
 
     recon_output = f"""
-GitHub Repository Analysis
-==========================
-Repository: {owner}/{repo}
+╔════════════════════════════════════════════════╗
+║     AUTO-DEPLOYMENT & RECON INITIATED          ║
+╚════════════════════════════════════════════════╝
+
+TARGET: {owner}/{repo}
 URL: https://github.com/{owner}/{repo}
 
-NOTE: This is a GitHub repository, not a live web application.
-To perform actual penetration testing, you need to:
-1. Clone and deploy the application locally
-2. Use Docker: cd {repo} && docker-compose up -d
-3. Point AutoCTF at http://localhost:PORT
-
-Automated Code Analysis
------------------------
+[PHASE 1] CLONING TARGET REPOSITORY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
+    deployed_url = None
+    deployment_port = None
+
     try:
-        # Clone and analyze the repository
+        # Clone the repository
         clone_cmd = f"""
         cd /tmp && \
-        git clone https://github.com/{owner}/{repo}.git --depth 1 2>&1 | head -20 && \
-        cd {repo} && \
-        echo "Files in repository:" && \
-        find . -type f -name "*.php" -o -name "*.js" -o -name "*.py" | head -20 && \
-        echo "" && \
-        echo "Potential config files:" && \
-        find . -type f -name "config*" -o -name "*.env*" -o -name "docker-compose.yml" | head -10
+        rm -rf {repo} 2>/dev/null && \
+        git clone https://github.com/{owner}/{repo}.git --depth 1 2>&1 && \
+        echo "✅ Repository cloned successfully"
         """
 
         result = await exec_command(clone_cmd, timeout=60)
-        recon_output += result
+        recon_output += result + "\n\n"
 
-        # Look for common vulnerabilities in code
-        vuln_scan_cmd = f"""
+        # Check for Docker support
+        recon_output += "[PHASE 2] DEPLOYMENT DETECTION\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+
+        check_docker_cmd = f"""
         cd /tmp/{repo} && \
-        echo "Searching for potential SQL injection patterns..." && \
-        grep -r "mysql_query\\|mysqli_query" --include="*.php" | head -10 || echo "No SQL patterns found" && \
-        echo "" && \
-        echo "Searching for potential XSS vulnerabilities..." && \
-        grep -r "echo \\$_GET\\|echo \\$_POST\\|echo \\$_REQUEST" --include="*.php" | head -10 || echo "No XSS patterns found"
+        if [ -f "docker-compose.yml" ]; then
+            echo "🐳 Docker Compose detected"
+            cat docker-compose.yml | grep -E "ports:|image:" | head -10
+        elif [ -f "Dockerfile" ]; then
+            echo "🐳 Dockerfile detected"
+            cat Dockerfile | head -10
+        else
+            echo "⚠️  No Docker configuration found"
+        fi
         """
 
-        vuln_result = await exec_command(vuln_scan_cmd, timeout=30)
-        recon_output += "\n\nVulnerability Patterns:\n" + vuln_result
+        docker_check = await exec_command(check_docker_cmd, timeout=30)
+        recon_output += docker_check + "\n\n"
+
+        # Try to detect port from docker-compose
+        port_detect_cmd = f"""
+        cd /tmp/{repo} && \
+        if [ -f "docker-compose.yml" ]; then
+            grep -oP '\\d+:' docker-compose.yml | head -1 | tr -d ':'
+        else
+            echo "8080"
+        fi
+        """
+
+        try:
+            port_result = await exec_command(port_detect_cmd, timeout=10)
+            deployment_port = port_result.strip() or "8080"
+        except:
+            deployment_port = "8080"
+
+        # Auto-deploy if Docker Compose is available
+        recon_output += "[PHASE 3] AUTO-DEPLOYMENT\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+
+        # Check if docker is available in sandbox
+        docker_avail_cmd = "which docker || echo 'not_found'"
+        docker_avail = await exec_command(docker_avail_cmd, timeout=10)
+
+        if "not_found" not in docker_avail:
+            # Try to deploy
+            deploy_cmd = f"""
+            cd /tmp/{repo} && \
+            if [ -f "docker-compose.yml" ]; then
+                echo "🚀 Deploying with Docker Compose..."
+                docker-compose up -d 2>&1 && \
+                sleep 5 && \
+                echo "✅ Deployment complete!" && \
+                echo "🌐 Target should be live at: http://localhost:{deployment_port}"
+            else
+                echo "⚠️  Manual deployment required - no docker-compose.yml"
+            fi
+            """
+
+            deploy_result = await exec_command(deploy_cmd, timeout=120)
+            recon_output += deploy_result + "\n\n"
+
+            if "Deployment complete" in deploy_result:
+                deployed_url = f"http://localhost:{deployment_port}"
+        else:
+            recon_output += "⚠️  Docker not available in E2B sandbox\n"
+            recon_output += "💡 NOTE: E2B sandboxes don't support Docker\n"
+            recon_output += "   Falling back to code analysis...\n\n"
+
+        # Code analysis
+        recon_output += "[PHASE 4] CODE ANALYSIS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+
+        analysis_cmd = f"""
+        cd /tmp/{repo} && \
+        echo "📂 Repository structure:" && \
+        find . -maxdepth 2 -type f -name "*.php" -o -name "*.js" -o -name "*.py" | head -15 && \
+        echo "" && \
+        echo "🔍 Searching for vulnerability patterns..." && \
+        echo "" && \
+        echo "💉 SQL Injection patterns:" && \
+        grep -r "mysql_query\\|mysqli_query\\|\\$_GET\\|\\$_POST" --include="*.php" 2>/dev/null | head -5 || echo "   None detected" && \
+        echo "" && \
+        echo "⚡ XSS patterns:" && \
+        grep -r "echo.*\\$_" --include="*.php" 2>/dev/null | head -5 || echo "   None detected"
+        """
+
+        analysis_result = await exec_command(analysis_cmd, timeout=30)
+        recon_output += analysis_result
 
     except Exception as e:
-        recon_output += f"\n\nCode analysis failed: {str(e)}"
+        recon_output += f"\n\n❌ DEPLOYMENT FAILED: {str(e)}"
 
+    # Final summary
     recon_output += f"""
 
-NEXT STEPS FOR DVWA:
-====================
-To test DVWA properly:
-1. Clone: git clone https://github.com/{owner}/{repo}.git
-2. Start: cd {repo} && docker-compose up -d
-3. Access: http://localhost:8080 (or whatever port it uses)
-4. In AutoCTF: Add target with URL http://localhost:8080
-5. Run scan against the live application
+╔════════════════════════════════════════════════╗
+║           AUTO-DEPLOYMENT SUMMARY              ║
+╚════════════════════════════════════════════════╝
 
-This GitHub repository contains INTENTIONALLY vulnerable code for training.
-Deploy it locally to perform actual penetration testing.
+Repository: {owner}/{repo}
+"""
+
+    if deployed_url:
+        recon_output += f"""✅ STATUS: DEPLOYED & LIVE
+🎯 TARGET URL: {deployed_url}
+⚡ READY FOR EXPLOITATION
+
+NEXT PHASE:
+The target is now live and ready for pentesting.
+The AutoCTF agent will automatically proceed with:
+  → Vulnerability scanning
+  → Active exploitation
+  → Proof-of-concept generation
+  → Automated patching
+"""
+    else:
+        recon_output += f"""⚠️  STATUS: CODE ANALYSIS ONLY
+💡 LIMITATION: E2B sandboxes don't support Docker
+
+TO DEPLOY & TEST MANUALLY:
+  1. Clone: git clone https://github.com/{owner}/{repo}.git
+  2. Deploy: cd {repo} && docker-compose up -d
+  3. Test: Create new target with http://localhost:{deployment_port}
+
+OR USE LOCAL DOCKER:
+  Run AutoCTF locally with Docker to enable auto-deployment
 """
 
     return recon_output
