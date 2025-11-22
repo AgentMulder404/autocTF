@@ -1,7 +1,13 @@
-# from langchain_openai import ChatOpenAI
-from langchain_groq import ChatGroq
-# llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-llm = ChatGroq(model="llama3-70b-8192", temperature=0)
+from langchain_openai import ChatOpenAI
+import os
+
+# Use xAI's Grok model (OpenAI-compatible API)
+llm = ChatOpenAI(
+    model="grok-beta",
+    temperature=0,
+    api_key=os.getenv("XAI_API_KEY"),
+    base_url="https://api.x.ai/v1"
+)
 
 def detect_vulns(scan_output: str) -> str:
     prompt = f"""
