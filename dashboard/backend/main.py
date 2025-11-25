@@ -6,9 +6,13 @@ import asyncio
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import os
+import sys
 
 # Load .env file from project root
 load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env'))
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
 from database import get_db, init_db
 from models import Target, PentestRun, Vulnerability, Patch
@@ -20,6 +24,14 @@ from schemas import (
 )
 from pentest_worker import PentestWorker
 from github_utils import extract_target_info_from_github
+
+# Import startup validation
+try:
+    from startup_validation import validate_startup
+    VALIDATION_AVAILABLE = True
+except ImportError:
+    print("⚠️  Warning: startup_validation module not found")
+    VALIDATION_AVAILABLE = False
 
 # Initialize FastAPI
 app = FastAPI(
@@ -37,16 +49,101 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize DB on startup
+# Store validation results
+validation_status = {
+    "validated": False,
+    "is_valid": False,
+    "errors": [],
+    "warnings": [],
+    "timestamp": None
+}
+
+# Initialize DB and validate on startup
 @app.on_event("startup")
-def startup():
-    init_db()
-    print("🚀 AutoCTF Dashboard API started")
+async def startup():
+    global validation_status
+
+    print("🚀 AutoCTF Dashboard API starting...")
+    print("=" * 60)
+
+    # Initialize database
+    try:
+        init_db()
+        print("✅ Database initialized")
+    except Exception as e:
+        print(f"❌ Database initialization failed: {e}")
+        validation_status["errors"].append(f"Database error: {str(e)}")
+
+    # Run startup validation
+    if VALIDATION_AVAILABLE:
+        print("\n🔍 Running startup validation...")
+        try:
+            is_valid, errors, warnings = await validate_startup()
+
+            validation_status.update({
+                "validated": True,
+                "is_valid": is_valid,
+                "errors": errors,
+                "warnings": warnings,
+                "timestamp": datetime.utcnow().isoformat()
+            })
+
+            if not is_valid:
+                print("\n" + "=" * 60)
+                print("❌ CRITICAL: Startup validation failed!")
+                print("=" * 60)
+                print("\n🚨 Errors:")
+                for error in errors:
+                    print(f"  • {error}")
+                print("\n⚠️  Dashboard will start but pentests WILL FAIL.")
+                print("Fix the errors above before running scans.\n")
+            else:
+                print("\n" + "=" * 60)
+                print("✅ Startup validation passed - AutoCTF ready!")
+                if warnings:
+                    print(f"⚠️  {len(warnings)} warnings (non-critical)")
+                print("=" * 60 + "\n")
+
+        except Exception as e:
+            print(f"⚠️  Validation error: {e}")
+            validation_status["errors"].append(f"Validation error: {str(e)}")
+    else:
+        print("⚠️  Startup validation skipped (module not available)")
+
+    print("🌐 Dashboard API ready at http://localhost:8000")
+    print("📊 API docs at http://localhost:8000/docs")
 
 # Health check
 @app.get("/")
 def root():
     return {"message": "AutoCTF Dashboard API", "status": "running"}
+
+# Validation status endpoint
+@app.get("/api/validation")
+def get_validation_status():
+    """Get startup validation status"""
+    return validation_status
+
+# Pre-scan validation check
+def check_system_ready():
+    """Check if system is ready for pentests"""
+    if not validation_status["validated"]:
+        raise HTTPException(
+            status_code=503,
+            detail="System validation not complete. Please wait or check logs."
+        )
+
+    if not validation_status["is_valid"]:
+        error_details = {
+            "message": "System validation failed - pentests cannot run",
+            "errors": validation_status["errors"],
+            "warnings": validation_status["warnings"],
+            "help": "Fix the errors listed above. Check .env file and API keys."
+        }
+        raise HTTPException(
+            status_code=503,
+            detail=error_details
+        )
 
 # ============================================
 # TARGET ENDPOINTS
@@ -145,6 +242,9 @@ def delete_target(target_id: int, db: Session = Depends(get_db)):
 @app.post("/api/targets/{target_id}/scan", response_model=RunResponse)
 async def start_scan(target_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Start a pentest scan for target"""
+    # FAIL-FAST: Check if system is ready
+    check_system_ready()
+
     target = db.query(Target).filter(Target.id == target_id).first()
     if not target:
         raise HTTPException(status_code=404, detail="Target not found")
