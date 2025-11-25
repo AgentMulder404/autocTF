@@ -1,8 +1,62 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Play, Trash2, Github } from 'lucide-react';
+import { Plus, Play, Trash2, Github, AlertCircle } from 'lucide-react';
 import { fetchTargets, createTarget, createTargetFromGitHub, deleteTarget, startScan } from '../lib/api';
 import { format } from 'date-fns';
+
+// GitHub URL validation
+function validateGitHubURL(url) {
+  if (!url || typeof url !== 'string') {
+    return { valid: false, error: 'URL cannot be empty' };
+  }
+
+  const trimmed = url.trim();
+
+  // Check for SSH format
+  if (trimmed.startsWith('git@github.com:')) {
+    const sshPattern = /^git@github\.com:([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+?)(\.git)?$/;
+    if (sshPattern.test(trimmed)) {
+      return { valid: true };
+    }
+    return {
+      valid: false,
+      error: 'Invalid Git SSH URL. Expected format: git@github.com:owner/repo.git'
+    };
+  }
+
+  // Check for HTTPS format
+  try {
+    const urlObj = new URL(trimmed);
+
+    if (urlObj.hostname !== 'github.com') {
+      return {
+        valid: false,
+        error: 'Not a GitHub URL. Please use a URL from github.com'
+      };
+    }
+
+    const pathParts = urlObj.pathname.split('/').filter(p => p);
+
+    if (pathParts.length < 2) {
+      return {
+        valid: false,
+        error: 'Invalid GitHub URL. Must include owner and repository (e.g., https://github.com/owner/repo)'
+      };
+    }
+
+    // Valid formats:
+    // - /owner/repo
+    // - /owner/repo.git
+    // - /owner/repo/tree/branch
+
+    return { valid: true };
+  } catch (e) {
+    return {
+      valid: false,
+      error: 'Invalid URL format. Expected: https://github.com/owner/repo'
+    };
+  }
+}
 
 export default function Targets() {
   const queryClient = useQueryClient();
@@ -10,6 +64,7 @@ export default function Targets() {
   const [importMode, setImportMode] = useState('github'); // Default to GitHub for ease of use
   const [formData, setFormData] = useState({ name: '', url: '', ip_address: '' });
   const [githubUrl, setGithubUrl] = useState('');
+  const [validationError, setValidationError] = useState('');
 
   const { data: targets, isLoading } = useQuery({
     queryKey: ['targets'],
@@ -27,10 +82,16 @@ export default function Targets() {
 
   const createFromGitHubMutation = useMutation({
     mutationFn: createTargetFromGitHub,
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('[GitHub Import] Success:', data);
       queryClient.invalidateQueries(['targets']);
       setShowForm(false);
       setGithubUrl('');
+      setValidationError('');
+    },
+    onError: (error) => {
+      console.error('[GitHub Import] Error:', error);
+      console.error('[GitHub Import] Error response:', error.response?.data);
     },
   });
 
@@ -56,7 +117,52 @@ export default function Targets() {
 
   const handleGitHubSubmit = (e) => {
     e.preventDefault();
+
+    // Client-side validation
+    console.log('[GitHub Import] Validating URL:', githubUrl);
+    const validation = validateGitHubURL(githubUrl);
+
+    if (!validation.valid) {
+      console.error('[GitHub Import] Validation failed:', validation.error);
+      setValidationError(validation.error);
+      return;
+    }
+
+    console.log('[GitHub Import] Validation passed, submitting:', githubUrl);
+    setValidationError('');
     createFromGitHubMutation.mutate(githubUrl);
+  };
+
+  // Get user-friendly error message
+  const getErrorMessage = () => {
+    const error = createFromGitHubMutation.error;
+
+    if (!error) return null;
+
+    // Check for response data first
+    if (error.response?.data?.detail) {
+      return error.response.data.detail;
+    }
+
+    // Check for network errors
+    if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
+      return 'Cannot connect to AutoCTF API. Make sure the backend is running at http://localhost:8000';
+    }
+
+    // Check for status code errors
+    if (error.response) {
+      const status = error.response.status;
+      if (status === 400) {
+        return error.response.data?.detail || 'Invalid GitHub URL format';
+      } else if (status === 409) {
+        return error.response.data?.detail || 'Target already exists';
+      } else if (status === 500) {
+        return error.response.data?.detail || 'Server error while importing repository';
+      }
+    }
+
+    // Fallback to generic error
+    return error.message || 'Failed to import repository';
   };
 
   if (isLoading) return <div className="p-8">Loading...</div>;
@@ -115,17 +221,45 @@ export default function Targets() {
                   GitHub Repository URL
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={githubUrl}
-                  onChange={(e) => setGithubUrl(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-                  placeholder="https://github.com/username/repo"
+                  onChange={(e) => {
+                    setGithubUrl(e.target.value);
+                    setValidationError(''); // Clear validation error on change
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 ${
+                    validationError || createFromGitHubMutation.isError
+                      ? 'border-red-300'
+                      : 'border-gray-300'
+                  }`}
+                  placeholder="https://github.com/WebGoat/WebGoat"
                   required
                 />
                 <p className="text-sm text-gray-500 mt-1">
-                  Paste any GitHub repo URL (https://github.com/owner/repo or git@github.com:owner/repo.git)
+                  Examples: https://github.com/WebGoat/WebGoat, https://github.com/juice-shop/juice-shop
                 </p>
               </div>
+
+              {/* Client-side validation error */}
+              {validationError && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-yellow-800 text-sm">
+                    <strong>Invalid URL:</strong> {validationError}
+                  </div>
+                </div>
+              )}
+
+              {/* Server-side error */}
+              {createFromGitHubMutation.isError && !validationError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-red-800 text-sm">
+                    <strong>Error:</strong> {getErrorMessage()}
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -137,17 +271,16 @@ export default function Targets() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
+                  onClick={() => {
+                    setShowForm(false);
+                    setValidationError('');
+                    setGithubUrl('');
+                  }}
                   className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
                 >
                   Cancel
                 </button>
               </div>
-              {createFromGitHubMutation.isError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                  Error: {createFromGitHubMutation.error?.response?.data?.detail || 'Failed to import repository'}
-                </div>
-              )}
             </form>
           )}
 

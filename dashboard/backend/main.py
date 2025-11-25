@@ -23,7 +23,7 @@ from schemas import (
     PatchResponse, OverviewStats, TrendData
 )
 from pentest_worker import PentestWorker
-from github_utils import extract_target_info_from_github
+from github_utils import extract_target_info_from_github, GitHubURLError
 
 # Import startup validation
 try:
@@ -32,6 +32,14 @@ try:
 except ImportError:
     print("⚠️  Warning: startup_validation module not found")
     VALIDATION_AVAILABLE = False
+
+# Configure logging
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Initialize FastAPI
 app = FastAPI(
@@ -186,21 +194,74 @@ def create_target(target: TargetCreate, db: Session = Depends(get_db)):
 
 @app.post("/api/targets/from-github", response_model=TargetResponse)
 def create_target_from_github(github_data: TargetFromGitHub, db: Session = Depends(get_db)):
-    """Create a target from a GitHub repository URL"""
-    try:
-        # Extract target info from GitHub URL
-        target_info = extract_target_info_from_github(github_data.github_url)
+    """
+    Create a target from a GitHub repository URL
 
-        # Create target with extracted info
+    Supports formats:
+    - https://github.com/owner/repo
+    - https://github.com/owner/repo.git
+    - https://github.com/owner/repo/tree/branch
+    - git@github.com:owner/repo.git
+    """
+    github_url = github_data.github_url
+    logger.info(f"[GitHub Import] Received request for URL: {github_url}")
+
+    try:
+        # Step 1: Extract target info from GitHub URL
+        logger.debug(f"[GitHub Import] Parsing GitHub URL: {github_url}")
+        target_info = extract_target_info_from_github(github_url)
+        logger.info(f"[GitHub Import] Successfully parsed: {target_info['name']}")
+
+        # Step 2: Check if target already exists
+        existing = db.query(Target).filter(Target.name == target_info['name']).first()
+        if existing:
+            logger.warning(f"[GitHub Import] Target already exists: {target_info['name']}")
+            raise HTTPException(
+                status_code=409,
+                detail=f"Target '{target_info['name']}' already exists. Delete the existing target first or use a different repository."
+            )
+
+        # Step 3: Create target with extracted info
+        logger.debug(f"[GitHub Import] Creating database record for: {target_info['name']}")
         db_target = Target(**target_info)
         db.add(db_target)
-        db.commit()
+
+        try:
+            db.commit()
+            logger.info(f"[GitHub Import] ✅ Successfully created target: {target_info['name']} (ID: {db_target.id})")
+        except Exception as db_error:
+            db.rollback()
+            logger.error(f"[GitHub Import] Database error: {db_error}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Database error while creating target: {str(db_error)}"
+            )
+
         db.refresh(db_target)
+        logger.debug(f"[GitHub Import] Target refreshed: {db_target.id}")
         return db_target
-    except ValueError as e:
+
+    except GitHubURLError as e:
+        # User-friendly URL parsing errors
+        logger.warning(f"[GitHub Import] Invalid URL: {github_url} - {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 409 for duplicates)
+        raise
+
+    except ValueError as e:
+        # Legacy ValueError handling
+        logger.warning(f"[GitHub Import] ValueError: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to process GitHub URL: {str(e)}")
+        # Catch-all for unexpected errors
+        logger.error(f"[GitHub Import] Unexpected error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unexpected error while importing repository: {str(e)}. Check server logs for details."
+        )
 
 @app.get("/api/targets/{target_id}", response_model=TargetResponse)
 def get_target(target_id: int, db: Session = Depends(get_db)):
