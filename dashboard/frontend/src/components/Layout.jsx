@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Shield, Target, Activity, AlertTriangle } from 'lucide-react';
+import ConnectionStatus from './ConnectionStatus';
 
 export default function Layout({ children }) {
   const location = useLocation();
@@ -14,7 +15,7 @@ export default function Layout({ children }) {
   return (
     <div className="min-h-screen flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-900 text-white">
+      <aside className="w-64 bg-gray-900 text-white flex flex-col">
         <div className="p-6">
           <div className="flex items-center gap-2">
             <Shield className="w-8 h-8 text-cyan-400" />
@@ -23,7 +24,7 @@ export default function Layout({ children }) {
           <p className="text-sm text-gray-400 mt-1">Enterprise Dashboard</p>
         </div>
 
-        <nav className="mt-6">
+        <nav className="mt-6 flex-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -44,6 +45,9 @@ export default function Layout({ children }) {
             );
           })}
         </nav>
+
+        {/* Connection Status at bottom */}
+        <ConnectionStatus />
       </aside>
 
       {/* Main Content */}

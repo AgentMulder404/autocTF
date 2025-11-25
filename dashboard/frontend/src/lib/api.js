@@ -6,6 +6,12 @@ export const api = axios.create({
   baseURL: API_BASE,
 });
 
+// Health check
+export const checkHealth = async () => {
+  const { data } = await api.get('/api/health');
+  return data;
+};
+
 // Targets
 export const fetchTargets = async () => {
   const { data } = await api.get('/api/targets');

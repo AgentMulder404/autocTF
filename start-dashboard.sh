@@ -11,8 +11,8 @@ fi
 # Start backend
 echo "📦 Starting backend API..."
 cd dashboard/backend
-pip install -q -r requirements.txt
-python main.py &
+pip3 install -q -r requirements.txt
+python3 main.py &
 BACKEND_PID=$!
 
 # Wait for backend to start

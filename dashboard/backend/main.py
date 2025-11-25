@@ -126,6 +126,42 @@ async def startup():
 def root():
     return {"message": "AutoCTF Dashboard API", "status": "running"}
 
+# Enhanced health check endpoint
+@app.get("/api/health")
+def health_check(db: Session = Depends(get_db)):
+    """
+    Comprehensive health check endpoint
+    Returns database connectivity, validation status, and system info
+    """
+    health_status = {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "1.0.0",
+        "api": "running",
+        "database": "unknown",
+        "validation": {
+            "completed": validation_status.get("validated", False),
+            "valid": validation_status.get("is_valid", False),
+            "error_count": len(validation_status.get("errors", [])),
+            "warning_count": len(validation_status.get("warnings", []))
+        }
+    }
+
+    # Check database connectivity
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        health_status["database"] = "connected"
+    except Exception as e:
+        health_status["database"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
+
+    # Check if system is ready for operations
+    if not validation_status.get("is_valid", False):
+        health_status["status"] = "degraded"
+
+    return health_status
+
 # Validation status endpoint
 @app.get("/api/validation")
 def get_validation_status():
