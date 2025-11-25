@@ -1,6 +1,10 @@
 import os
 import requests
 import json
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 def detect_vulns(scan_output: str) -> str:
     """Use xAI Grok to detect vulnerabilities from scan output"""

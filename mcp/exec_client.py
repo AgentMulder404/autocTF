@@ -1,6 +1,10 @@
 from e2b import AsyncSandbox
 import asyncio
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Global sandbox instance for reuse
 _sandbox = None
@@ -112,8 +116,9 @@ async def close_sandbox():
     global _sandbox
     if _sandbox:
         try:
-            await _sandbox.close()
-            print("🔒 Sandbox closed")
+            # E2B sandboxes auto-cleanup on timeout
+            # Manual cleanup: await _sandbox.kill() if needed
+            print("🔒 Sandbox will auto-cleanup on timeout")
         except:
             pass
         _sandbox = None

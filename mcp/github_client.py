@@ -1,6 +1,10 @@
 from github import Github
 import os
 import base64
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 def get_repo():
     """Lazy initialization of GitHub client"""

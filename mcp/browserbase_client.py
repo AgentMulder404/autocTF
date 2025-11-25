@@ -1,5 +1,9 @@
 from browserbase import Browserbase
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 bb = Browserbase(api_key=os.getenv("BROWSERBASE_API_KEY"))
 
