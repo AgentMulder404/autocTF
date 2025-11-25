@@ -1,4 +1,5 @@
 from github import Github
+import github
 import os
 import base64
 from dotenv import load_dotenv
@@ -8,7 +9,10 @@ load_dotenv()
 
 def get_repo():
     """Lazy initialization of GitHub client"""
-    g = Github(os.getenv("GITHUB_TOKEN"))
+    token = os.getenv("GITHUB_TOKEN")
+    # Use new Auth API to avoid deprecation warning
+    auth = github.Auth.Token(token)
+    g = Github(auth=auth)
     return g.get_repo(os.getenv("GITHUB_REPO"))
 
 def create_pr(title: str, body: str, branch: str, files: dict, screenshots: list = None, dump_data: dict = None):
