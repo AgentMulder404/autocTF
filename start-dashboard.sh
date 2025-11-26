@@ -1,12 +1,7 @@
 #!/bin/bash
 
-echo "🚀 Starting AutoCTF Enterprise Dashboard..."
-
-# Check if Docker is running
-if ! docker info > /dev/null 2>&1; then
-    echo "❌ Docker is not running. Please start Docker Desktop first."
-    exit 1
-fi
+echo "🚀 Starting AutoCTF Enterprise Dashboard (E2B Cloud Edition)..."
+echo "ℹ️  No Docker required - runs on E2B cloud sandboxes"
 
 # Start backend
 echo "📦 Starting backend API..."

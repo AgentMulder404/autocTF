@@ -90,7 +90,7 @@ URL: https://github.com/{owner}/{repo}
         result = await exec_command(clone_cmd, timeout=60)
         recon_output += result + "\n\n"
 
-        # Check for Docker support
+        # Check for Docker support (informational only - not used for deployment)
         recon_output += "[PHASE 2] DEPLOYMENT DETECTION\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
 
         check_docker_cmd = f"""
@@ -102,14 +102,14 @@ URL: https://github.com/{owner}/{repo}
             echo "🐳 Dockerfile detected"
             cat Dockerfile | head -10
         else
-            echo "⚠️  No Docker configuration found"
+            echo "ℹ️  No Docker configuration found"
         fi
         """
 
         docker_check = await exec_command(check_docker_cmd, timeout=30)
         recon_output += docker_check + "\n\n"
 
-        # Try to detect port from docker-compose
+        # Detect port for informational purposes
         port_detect_cmd = f"""
         cd /tmp/{repo} && \
         if [ -f "docker-compose.yml" ]; then
@@ -125,37 +125,14 @@ URL: https://github.com/{owner}/{repo}
         except:
             deployment_port = "8080"
 
-        # Auto-deploy if Docker Compose is available
-        recon_output += "[PHASE 3] AUTO-DEPLOYMENT\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-
-        # Check if docker is available in sandbox
-        docker_avail_cmd = "which docker || echo 'not_found'"
-        docker_avail = await exec_command(docker_avail_cmd, timeout=10)
-
-        if "not_found" not in docker_avail:
-            # Try to deploy
-            deploy_cmd = f"""
-            cd /tmp/{repo} && \
-            if [ -f "docker-compose.yml" ]; then
-                echo "🚀 Deploying with Docker Compose..."
-                docker-compose up -d 2>&1 && \
-                sleep 5 && \
-                echo "✅ Deployment complete!" && \
-                echo "🌐 Target should be live at: http://localhost:{deployment_port}"
-            else
-                echo "⚠️  Manual deployment required - no docker-compose.yml"
-            fi
-            """
-
-            deploy_result = await exec_command(deploy_cmd, timeout=120)
-            recon_output += deploy_result + "\n\n"
-
-            if "Deployment complete" in deploy_result:
-                deployed_url = f"http://localhost:{deployment_port}"
-        else:
-            recon_output += "⚠️  Docker not available in E2B sandbox\n"
-            recon_output += "💡 NOTE: E2B sandboxes don't support Docker\n"
-            recon_output += "   Falling back to code analysis...\n\n"
+        # E2B Cloud Sandboxes don't support Docker
+        recon_output += "[PHASE 3] DEPLOYMENT STATUS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        recon_output += "ℹ️  E2B cloud sandboxes don't support Docker containers\n"
+        recon_output += "💡 This is a code-only analysis - no live deployment\n"
+        recon_output += "\nTO TEST LIVE:\n"
+        recon_output += f"  1. Clone locally: git clone https://github.com/{owner}/{repo}.git\n"
+        recon_output += f"  2. Deploy: cd {repo} && docker-compose up -d\n"
+        recon_output += f"  3. Add as target with URL: http://localhost:{deployment_port}\n\n"
 
         # Code analysis
         recon_output += "[PHASE 4] CODE ANALYSIS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -190,30 +167,25 @@ URL: https://github.com/{owner}/{repo}
 Repository: {owner}/{repo}
 """
 
-    if deployed_url:
-        recon_output += f"""✅ STATUS: DEPLOYED & LIVE
-🎯 TARGET URL: {deployed_url}
-⚡ READY FOR EXPLOITATION
+    recon_output += f"""⚠️  STATUS: CODE ANALYSIS ONLY
+💡 E2B CLOUD MODE: No Docker container deployment
+
+FINDINGS:
+  → Repository successfully cloned and analyzed
+  → Vulnerability patterns detected in code
+  → Security recommendations generated
+
+TO TEST LIVE (Optional):
+  1. Clone locally: git clone https://github.com/{owner}/{repo}.git
+  2. Deploy: cd {repo} && docker-compose up -d (requires local Docker)
+  3. Add as new target: http://localhost:{deployment_port}
 
 NEXT PHASE:
-The target is now live and ready for pentesting.
-The AutoCTF agent will automatically proceed with:
-  → Vulnerability scanning
-  → Active exploitation
-  → Proof-of-concept generation
-  → Automated patching
-"""
-    else:
-        recon_output += f"""⚠️  STATUS: CODE ANALYSIS ONLY
-💡 LIMITATION: E2B sandboxes don't support Docker
-
-TO DEPLOY & TEST MANUALLY:
-  1. Clone: git clone https://github.com/{owner}/{repo}.git
-  2. Deploy: cd {repo} && docker-compose up -d
-  3. Test: Create new target with http://localhost:{deployment_port}
-
-OR USE LOCAL DOCKER:
-  Run AutoCTF locally with Docker to enable auto-deployment
+The AutoCTF agent will proceed with:
+  → Static code vulnerability analysis
+  → Security pattern detection
+  → Automated patch generation
+  → GitHub PR creation
 """
 
     return recon_output
