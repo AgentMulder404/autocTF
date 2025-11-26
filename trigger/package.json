@@ -1,0 +1,19 @@
+{
+  "name": "autoctf-trigger-jobs",
+  "version": "1.0.0",
+  "description": "Trigger.dev background jobs for AutoCTF pentest scans",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "trigger.dev dev",
+    "deploy": "trigger.dev deploy"
+  },
+  "dependencies": {
+    "@trigger.dev/sdk": "^3.0.0",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  }
+}
