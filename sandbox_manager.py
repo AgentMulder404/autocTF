@@ -56,7 +56,7 @@ class SandboxManager:
             self.created_at = time.time()
             self.command_count = 0
 
-            print(f"✅ E2B Sandbox created: {self.sandbox.id[:12]}...")
+            print(f"✅ E2B Sandbox created: {self.sandbox.sandbox_id[:12]}...")
             return self.sandbox
 
         except Exception as e:
@@ -279,7 +279,7 @@ class SandboxManager:
         """
         if self.sandbox:
             try:
-                sandbox_id = self.sandbox.id[:12]
+                sandbox_id = self.sandbox.sandbox_id[:12]
                 print(f"🔒 Closing sandbox: {sandbox_id}...")
                 # Note: E2B handles cleanup automatically
                 self.sandbox = None
@@ -304,7 +304,7 @@ class SandboxManager:
 
         return {
             'active': True,
-            'sandbox_id': self.sandbox.id,
+            'sandbox_id': self.sandbox.sandbox_id,
             'age_seconds': age,
             'command_count': self.command_count,
             'age_minutes': age / 60,

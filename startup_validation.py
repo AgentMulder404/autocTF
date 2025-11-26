@@ -60,13 +60,13 @@ class StartupValidator:
 
         required_vars = {
             'E2B_API_KEY': 'E2B Sandbox',
-            'GITHUB_TOKEN': 'GitHub API',
-            'GITHUB_REPO': 'GitHub Repository',
             'XAI_API_KEY': 'xAI Grok LLM',
             'DATABASE_URL': 'PostgreSQL Database'
         }
 
         optional_vars = {
+            'GITHUB_TOKEN': 'GitHub API (required for PR creation)',
+            'GITHUB_REPO': 'GitHub Repository (required for PR creation)',
             'BROWSERBASE_API_KEY': 'Browserbase (screenshots)',
             'BROWSERBASE_PROJECT_ID': 'Browserbase Project',
             'OPENAI_API_KEY': 'OpenAI (alternative LLM)'
@@ -101,13 +101,13 @@ class StartupValidator:
         repo_name = os.getenv('GITHUB_REPO')
 
         if not token or not repo_name:
-            self.errors.append("GitHub configuration incomplete (GITHUB_TOKEN or GITHUB_REPO missing)")
-            print("  ❌ Configuration incomplete")
+            self.warnings.append("GitHub configuration incomplete (PR creation disabled)")
+            print("  ⚠️  Configuration incomplete (PR creation disabled)")
             return
 
         if self._is_placeholder(token):
-            self.errors.append("GITHUB_TOKEN is a placeholder - replace with real token from https://github.com/settings/tokens")
-            print("  ❌ Token is placeholder")
+            self.warnings.append("GITHUB_TOKEN is a placeholder (PR creation disabled)")
+            print("  ⚠️  Token is placeholder (PR creation disabled)")
             return
 
         try:
@@ -131,8 +131,8 @@ class StartupValidator:
                 # Verify permissions
                 permissions = repo.permissions
                 if not permissions.push:
-                    self.errors.append(f"GitHub token lacks write permissions to {repo_name}")
-                    print("  ❌ No write permissions (cannot create PRs)")
+                    self.warnings.append(f"GitHub token lacks write permissions to {repo_name} (PR creation disabled)")
+                    print("  ⚠️  No write permissions (PR creation disabled)")
                 else:
                     print("  ✅ Write permissions: OK")
 
@@ -154,15 +154,15 @@ class StartupValidator:
 
             except github.GithubException as e:
                 if e.status == 404:
-                    self.errors.append(f"Repository not found: {repo_name} (check GITHUB_REPO)")
-                    print(f"  ❌ Repository not found: {repo_name}")
+                    self.warnings.append(f"Repository not found: {repo_name} (PR creation disabled)")
+                    print(f"  ⚠️  Repository not found: {repo_name}")
                 else:
-                    self.errors.append(f"GitHub API error: {e.data.get('message', str(e))}")
-                    print(f"  ❌ API error: {e.status}")
+                    self.warnings.append(f"GitHub API error: {e.data.get('message', str(e))} (PR creation disabled)")
+                    print(f"  ⚠️  API error: {e.status}")
 
         except Exception as e:
-            self.errors.append(f"GitHub validation failed: {str(e)}")
-            print(f"  ❌ Validation failed: {e}")
+            self.warnings.append(f"GitHub validation failed: {str(e)} (PR creation disabled)")
+            print(f"  ⚠️  Validation failed: {e}")
 
     async def validate_browserbase(self):
         """Validate Browserbase configuration and check rate limits"""
@@ -206,14 +206,13 @@ class StartupValidator:
             except Exception as e:
                 error_str = str(e)
                 if "429" in error_str or "Too Many Requests" in error_str:
-                    self.errors.append("Browserbase rate limit exceeded - close active sessions or upgrade plan")
-                    print("  ❌ Rate limit exceeded")
-                    print(f"     {error_str[:100]}")
+                    self.warnings.append("Browserbase rate limit exceeded (screenshots disabled)")
+                    print("  ⚠️  Rate limit exceeded (screenshots disabled)")
                 elif "401" in error_str or "unauthorized" in error_str.lower():
-                    self.errors.append("Browserbase authentication failed - check API key")
-                    print("  ❌ Authentication failed")
+                    self.warnings.append("Browserbase authentication failed (screenshots disabled)")
+                    print("  ⚠️  Authentication failed (screenshots disabled)")
                 else:
-                    self.warnings.append(f"Browserbase test failed: {error_str[:100]}")
+                    self.warnings.append(f"Browserbase test failed: {error_str[:100]} (screenshots disabled)")
                     print(f"  ⚠️  API error: {error_str[:50]}...")
 
         except ImportError:
